@@ -9,26 +9,6 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import boto3
 
-# Default settings for our DAG
-default_args = {
-    'owner': 'data_engineer',
-    'depends_on_past': False,
-    'start_date': datetime(2026, 3, 15), # Start today
-    'email_on_failure': False,
-    'email_on_retry': False,
-    'retries': 1,
-    'retry_delay': timedelta(minutes=5),
-}
-
-# Define the DAG
-dag = DAG(
-    'spotify_to_s3_pipeline',
-    default_args=default_args,
-    description='Extracts recent Spotify tracks and loads raw JSON to S3',
-    schedule='0 */3 * * *',  # <--- Runs at minute 0 past every 3rd hour
-    catchup=False
-)
-
 def extract_spotify_data(**kwargs):
     """Pulls recent tracks and formats the data as NDJSON for BigQuery."""
     print("Authenticating with Spotify...")
@@ -75,6 +55,28 @@ def load_to_s3(**kwargs):
     )
     print("Upload complete!")
 
+
+# Default settings for our DAG
+default_args = {
+    'owner': 'data_engineer',
+    'depends_on_past': False,
+    'start_date': datetime(2026, 3, 15), # Start today
+    'email_on_failure': False,
+    'email_on_retry': False,
+    'retries': 1,
+    'retry_delay': timedelta(minutes=5),
+}
+
+# Define the DAG
+dag = DAG(
+    'spotify_to_s3_pipeline',
+    default_args=default_args,
+    description='Extracts recent Spotify tracks and loads raw JSON to S3',
+    schedule='0 */3 * * *',  # <--- Runs at minute 0 past every 3rd hour
+    catchup=False
+)
+
+
 # Define the Tasks
 extract_task = PythonOperator(
     task_id='extract_data',
@@ -82,7 +84,13 @@ extract_task = PythonOperator(
     dag=dag,
 )
 
-# 1. Transfer raw JSON from AWS S3 over to Google Cloud Storage
+load_task = PythonOperator(
+    task_id='load_data',
+    python_callable=load_to_s3,
+    dag=dag,
+)
+
+#Transfer raw JSON from AWS S3 over to Google Cloud Storage
 transfer_s3_to_gcs = S3ToGCSOperator(
     task_id='transfer_s3_to_gcs',
     bucket=os.getenv("S3_BUCKET_NAME"),   # Replace with your S3 bucket
@@ -94,7 +102,7 @@ transfer_s3_to_gcs = S3ToGCSOperator(
     dag=dag
 )
 
-# 2. Load the JSON from GCS directly into BigQuery
+#Load the JSON from GCS directly into BigQuery
 load_gcs_to_bq = GCSToBigQueryOperator(
     task_id='load_gcs_to_bq',
     bucket='spotify-landing-zone',
@@ -109,18 +117,11 @@ load_gcs_to_bq = GCSToBigQueryOperator(
 
 
 
-load_task = PythonOperator(
-    task_id='load_data',
-    python_callable=load_to_s3,
-    dag=dag,
-)
+
+
 
 
 
 
 # Set the Dependencies (This is what makes it a pipeline!)
-# extract_task >> load_task
-
-
-# Update your task dependencies at the bottom of the file
-extract_task >> transfer_s3_to_gcs >> load_gcs_to_bq
+extract_task >> load_task >> transfer_s3_to_gcs >> load_gcs_to_bq
