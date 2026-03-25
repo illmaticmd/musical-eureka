@@ -44,7 +44,7 @@ with DAG(
         task_id='transfer_tracks_s3_to_gcs',
         bucket=os.getenv("S3_BUCKET_NAME"),   
         prefix='raw_data/tracks/',             # Keep tracks isolated
-        dest_gcs='gs://spotify-landing-zone/tracks/', 
+        dest_gcs='gs://spotify-landing-zone/', 
         aws_conn_id='aws_default',          
         gcp_conn_id='gcp_default',          
         replace=True,
@@ -53,7 +53,7 @@ with DAG(
     load_tracks_gcs_to_bq = GCSToBigQueryOperator(
         task_id='load_tracks_gcs_to_bq',
         bucket='spotify-landing-zone',
-        source_objects=['tracks/*'],               
+        source_objects=['raw_data/tracks/*'],               
         destination_project_dataset_table='spotify_raw.listening_history', 
         source_format='NEWLINE_DELIMITED_JSON', 
         write_disposition='WRITE_APPEND',   
