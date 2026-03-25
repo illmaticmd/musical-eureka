@@ -46,7 +46,7 @@ def load_to_s3(**kwargs):
     
     s3_client.put_object(
         Bucket=bucket_name,
-        Key=f"raw_data/{file_name}",
+        Key=f"raw_data/tracks/{file_name}",
         Body=data  
     )
     print("Upload complete!")

@@ -23,7 +23,7 @@ with DAG(
     'spotify_to_s3_pipeline',
     default_args=default_args,
     description='Extracts Spotify tracks and artists, loading them to S3, GCS, and BigQuery',
-    schedule_interval='0 */3 * * *',  
+    schedule='0 */3 * * *',  
     catchup=False
 ) as dag:
 
