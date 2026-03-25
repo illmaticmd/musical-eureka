@@ -9,7 +9,7 @@ WITH tracks AS (
         -- Spotify tracks can have multiple artists. We grab the ID of the first (primary) artist.
         track.artists[SAFE_OFFSET(0)].id AS primary_artist_id
         
-    FROM `your_project_id.spotify_raw.listening_history`
+    FROM `spotify-data-pipeline-490402.spotify_raw.listening_history`
 ),
 
 artists AS (
@@ -21,7 +21,7 @@ artists AS (
         -- If they have no genres, we label it 'Unknown' instead of leaving a null blank.
         COALESCE(genres[SAFE_OFFSET(0)], 'Unknown') AS primary_genre
         
-    FROM `your_project_id.spotify_raw.artists`
+    FROM `spotify-data-pipeline-490402.spotify_raw.artists`
 )
 
 -- Join them together to create the final, flat table for Power BI
