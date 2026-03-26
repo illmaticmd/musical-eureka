@@ -1,5 +1,7 @@
 WITH tracks AS (
-    SELECT 
+    -- Adding DISTINCT forces BigQuery to drop any duplicate rows 
+    -- where the song and the exact play time are identical.
+    SELECT DISTINCT
         -- Extracting basic track info
         track.id AS track_id,
         track.name AS track_name,
@@ -13,7 +15,8 @@ WITH tracks AS (
 ),
 
 artists AS (
-    SELECT 
+-- We also use DISTINCT here just in case Airflow pulled the same artist multiple times
+    SELECT DISTINCT 
         artist_id,
         artist_name,
         

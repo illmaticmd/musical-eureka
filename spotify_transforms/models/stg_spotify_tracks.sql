@@ -2,7 +2,8 @@ WITH raw_data AS (
     SELECT * FROM `spotify-data-pipeline-490402.spotify_raw.listening_history`
 )
 
-SELECT 
+-- Adding DISTINCT here drops the duplicate rows caused by overlapping Airflow runs
+SELECT DISTINCT
     track.id AS track_id,
     track.name AS track_name,
     -- Extract the first artist's name from the nested array
