@@ -17,13 +17,21 @@ def extract_spotify_data(**kwargs):
     track_list = raw_response.get('items', [])
     print(f"Pulled {len(track_list)} tracks.")
     
-    # 2. DROP THE NOISY SCHEMA-DRIFT COLUMNS
+# 2. EXTRACT THE YEAR AND NEUTRALIZE THE MESSY COLUMNS
     for item in track_list:
         if 'track' in item and 'album' in item['track']:
-            # This safely removes the release date fields from the dictionary
-            item['track']['album'].pop('release_date', None)
-            item['track']['album'].pop('release_date_precision', None)
-    
+            # Safely grab the raw date
+            raw_date = item['track']['album'].get('release_date', '')
+            
+            # If a date exists, slice the first 4 characters (the year) and save it as a new field
+            if raw_date:
+                item['track']['album']['release_year'] = raw_date[:4]
+            
+            # INSTEAD OF .pop(), OVERWRITE WITH A BLANK STRING
+            # This maintains the JSON structure BigQuery expects without the messy date formatting
+            item['track']['album']['release_date'] = ""
+            item['track']['album']['release_date_precision'] = ""
+            
     # 3. Convert that list into a single NDJSON formatted string
     ndjson_string = "\n".join([json.dumps(track) for track in track_list])
     

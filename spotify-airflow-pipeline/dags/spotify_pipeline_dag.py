@@ -57,7 +57,8 @@ with DAG(
         destination_project_dataset_table='spotify_raw.listening_history', 
         source_format='NEWLINE_DELIMITED_JSON', 
         write_disposition='WRITE_APPEND',   
-        autodetect=False,                    
+        autodetect=True,                    
+        schema_update_options=['ALLOW_FIELD_ADDITION'],        
         gcp_conn_id='gcp_default',
     )
 
@@ -91,7 +92,7 @@ with DAG(
         destination_project_dataset_table='spotify_raw.artists', # New BQ Table
         source_format='NEWLINE_DELIMITED_JSON', 
         write_disposition='WRITE_APPEND',   
-        autodetect=False,                    
+        autodetect=True,                    
         gcp_conn_id='gcp_default',
     )
 
