@@ -23,7 +23,7 @@ with DAG(
     'spotify_to_s3_pipeline',
     default_args=default_args,
     description='Extracts Spotify tracks and artists, loading them to S3, GCS, and BigQuery',
-    schedule='0 */3 * * *',  
+    schedule='0 * * * *',  
     catchup=False
 ) as dag:
 
@@ -57,7 +57,7 @@ with DAG(
         destination_project_dataset_table='spotify_raw.listening_history', 
         source_format='NEWLINE_DELIMITED_JSON', 
         write_disposition='WRITE_APPEND',   
-        autodetect=True,                    
+        autodetect=False,                    
         gcp_conn_id='gcp_default',
     )
 
@@ -91,7 +91,7 @@ with DAG(
         destination_project_dataset_table='spotify_raw.artists', # New BQ Table
         source_format='NEWLINE_DELIMITED_JSON', 
         write_disposition='WRITE_APPEND',   
-        autodetect=True,                    
+        autodetect=False,                    
         gcp_conn_id='gcp_default',
     )
 

@@ -8,17 +8,21 @@ import boto3
 def extract_spotify_data(**kwargs):
     """Pulls recent tracks and formats the data as NDJSON for BigQuery."""
     print("Authenticating with Spotify...")
-    # Point to the cache file we placed in the dags folder
     cache_path = '/opt/airflow/dags/.cache' 
     auth_manager = SpotifyOAuth(scope="user-read-recently-played", cache_path=cache_path)
     sp = spotipy.Spotify(auth_manager=auth_manager)
     
     # 1. Pull the raw nested dictionary from Spotify
     raw_response = sp.current_user_recently_played(limit=50)
-    
-    # 2. Extract ONLY the list of tracks (ignoring API metadata)
     track_list = raw_response.get('items', [])
     print(f"Pulled {len(track_list)} tracks.")
+    
+    # 2. DROP THE NOISY SCHEMA-DRIFT COLUMNS
+    for item in track_list:
+        if 'track' in item and 'album' in item['track']:
+            # This safely removes the release date fields from the dictionary
+            item['track']['album'].pop('release_date', None)
+            item['track']['album'].pop('release_date_precision', None)
     
     # 3. Convert that list into a single NDJSON formatted string
     ndjson_string = "\n".join([json.dumps(track) for track in track_list])
