@@ -29,13 +29,28 @@ def load_credentials():
             "SPOTIPY_CLIENT_ID": os.getenv("SPOTIPY_CLIENT_ID"),
             "SPOTIPY_CLIENT_SECRET": os.getenv("SPOTIPY_CLIENT_SECRET"),
             "SPOTIPY_REDIRECT_URI": os.getenv("SPOTIPY_REDIRECT_URI"),
+            "SPOTIPY_REFRESH_TOKEN": os.getenv("SPOTIPY_REFRESH_TOKEN"),
         }
     else:
         return {
             "SPOTIPY_CLIENT_ID": get_secret("SPOTIPY_CLIENT_ID"),
             "SPOTIPY_CLIENT_SECRET": get_secret("SPOTIPY_CLIENT_SECRET"),
             "SPOTIPY_REDIRECT_URI": get_secret("SPOTIPY_REDIRECT_URI"),
+            "SPOTIPY_REFRESH_TOKEN": get_secret("SPOTIPY_REFRESH_TOKEN"),
         }
+
+
+def get_spotify_client(creds):
+    """Create a Spotify client using refresh token — no browser needed."""
+    auth_manager = SpotifyOAuth(
+        client_id=creds["SPOTIPY_CLIENT_ID"],
+        client_secret=creds["SPOTIPY_CLIENT_SECRET"],
+        redirect_uri=creds["SPOTIPY_REDIRECT_URI"],
+        scope="user-read-recently-played",
+    )
+    # Inject the refresh token directly — bypasses interactive login
+    token_info = auth_manager.refresh_access_token(creds["SPOTIPY_REFRESH_TOKEN"])
+    return spotipy.Spotify(auth=token_info["access_token"])
 
 
 # -------------------------------------------------------------------
@@ -59,17 +74,8 @@ def extract_spotify_data(**kwargs):
     print("Loading credentials...")
     creds = load_credentials()
 
-    os.environ["SPOTIPY_CLIENT_ID"] = creds["SPOTIPY_CLIENT_ID"]
-    os.environ["SPOTIPY_CLIENT_SECRET"] = creds["SPOTIPY_CLIENT_SECRET"]
-    os.environ["SPOTIPY_REDIRECT_URI"] = creds["SPOTIPY_REDIRECT_URI"]
-
     print("Authenticating with Spotify...")
-    cache_path = os.getenv("SPOTIPY_CACHE_PATH", ".cache")
-    auth_manager = SpotifyOAuth(
-        scope="user-read-recently-played",
-        cache_path=cache_path
-    )
-    sp = spotipy.Spotify(auth_manager=auth_manager)
+    sp = get_spotify_client(creds)
 
     # 1. Pull raw data from Spotify
     raw_response = sp.current_user_recently_played(limit=50)
