@@ -1,0 +1,37 @@
+name: Spotify Pipeline
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # Runs every hour — adjust as needed
+  workflow_dispatch:        # Lets you trigger manually from GitHub anytime
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+
+    env:
+      ENV: cloud
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+      - name: Run tracks pipeline
+        run: python extract_tracks.py
+
+      - name: Run artists pipeline
+        run: python extract_artists.py

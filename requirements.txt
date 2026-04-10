@@ -1,0 +1,4 @@
+spotipy
+google-cloud-bigquery
+google-cloud-secret-manager
+python-dotenv
