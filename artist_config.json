@@ -1,0 +1,7 @@
+{
+  "artist_name": "Your Artist Name Here",
+  "spotify_user_id": "their_spotify_user_id",
+  "bigquery_dataset": "spotify_raw",
+  "bigquery_tracks_table": "listening_history",
+  "bigquery_artists_table": "artists"
+}
