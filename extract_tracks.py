@@ -137,6 +137,9 @@ def load_to_bigquery(**kwargs):
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
         source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
         autodetect=True,
+        schema_update_options=[
+            bigquery.SchemaUpdateOption.ALLOW_FIELD_ADDITION
+        ]
     )
 
     job = bq_client.load_table_from_json(rows, full_table, job_config=job_config)

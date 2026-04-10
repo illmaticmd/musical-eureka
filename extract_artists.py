@@ -8,8 +8,6 @@ from dotenv import load_dotenv
 
 # -------------------------------------------------------------------
 # CREDENTIALS
-# Locally: reads from your .env file (ENV=local)
-# GitHub Actions / Cloud: reads from Google Secret Manager
 # -------------------------------------------------------------------
 
 def get_secret(secret_id, project_id=None):
@@ -29,13 +27,27 @@ def load_credentials():
             "SPOTIPY_CLIENT_ID": os.getenv("SPOTIPY_CLIENT_ID"),
             "SPOTIPY_CLIENT_SECRET": os.getenv("SPOTIPY_CLIENT_SECRET"),
             "SPOTIPY_REDIRECT_URI": os.getenv("SPOTIPY_REDIRECT_URI"),
+            "SPOTIPY_REFRESH_TOKEN": os.getenv("SPOTIPY_REFRESH_TOKEN"),
         }
     else:
         return {
             "SPOTIPY_CLIENT_ID": get_secret("SPOTIPY_CLIENT_ID"),
             "SPOTIPY_CLIENT_SECRET": get_secret("SPOTIPY_CLIENT_SECRET"),
             "SPOTIPY_REDIRECT_URI": get_secret("SPOTIPY_REDIRECT_URI"),
+            "SPOTIPY_REFRESH_TOKEN": get_secret("SPOTIPY_REFRESH_TOKEN"),
         }
+
+
+def get_spotify_client(creds):
+    """Create a Spotify client using refresh token — no browser needed."""
+    auth_manager = SpotifyOAuth(
+        client_id=creds["SPOTIPY_CLIENT_ID"],
+        client_secret=creds["SPOTIPY_CLIENT_SECRET"],
+        redirect_uri=creds["SPOTIPY_REDIRECT_URI"],
+        scope="user-read-recently-played",
+    )
+    token_info = auth_manager.refresh_access_token(creds["SPOTIPY_REFRESH_TOKEN"])
+    return spotipy.Spotify(auth=token_info["access_token"])
 
 
 # -------------------------------------------------------------------
@@ -81,19 +93,10 @@ def extract_spotify_artists(**kwargs):
     artist_ids = list(artist_ids)
     print(f"Found {len(artist_ids)} unique artists.")
 
-    # 2. Authenticate with Spotify
+    # 2. Authenticate with Spotify using refresh token
     print("Loading credentials...")
     creds = load_credentials()
-    os.environ["SPOTIPY_CLIENT_ID"] = creds["SPOTIPY_CLIENT_ID"]
-    os.environ["SPOTIPY_CLIENT_SECRET"] = creds["SPOTIPY_CLIENT_SECRET"]
-    os.environ["SPOTIPY_REDIRECT_URI"] = creds["SPOTIPY_REDIRECT_URI"]
-
-    cache_path = os.getenv("SPOTIPY_CACHE_PATH", ".cache")
-    auth_manager = SpotifyOAuth(
-        scope="user-read-recently-played",
-        cache_path=cache_path
-    )
-    sp = spotipy.Spotify(auth_manager=auth_manager)
+    sp = get_spotify_client(creds)
 
     # 3. Fetch artist details in batches of 50 (Spotify API limit)
     extracted_artists = []
@@ -156,6 +159,9 @@ def load_artists_to_bigquery(**kwargs):
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
         source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
         autodetect=True,
+        schema_update_options=[
+            bigquery.SchemaUpdateOption.ALLOW_FIELD_ADDITION
+        ]
     )
 
     job = bq_client.load_table_from_json(rows, full_table, job_config=job_config)
