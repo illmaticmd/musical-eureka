@@ -24,11 +24,11 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements.txt
-
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v1
+        id: auth
+        uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
       - name: Run tracks pipeline
         run: python extract_tracks.py
