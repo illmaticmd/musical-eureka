@@ -2,8 +2,8 @@ name: Spotify Pipeline
 
 on:
   schedule:
-    - cron: '0 * * * *'   # Runs every hour — adjust as needed
-  workflow_dispatch:        # Lets you trigger manually from GitHub anytime
+    - cron: '0 * * * *'
+  workflow_dispatch:
 
 jobs:
   run-pipeline:
@@ -24,6 +24,7 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements.txt
+
       - name: Authenticate to Google Cloud
         id: auth
         uses: google-github-actions/auth@v2
@@ -35,3 +36,12 @@ jobs:
 
       - name: Run artists pipeline
         run: python extract_artists.py
+
+      - name: Install dbt
+        run: pip install dbt-bigquery
+
+      - name: Run dbt models
+        working-directory: spotify_transforms
+        env:
+          DBT_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+        run: dbt run --profiles-dir .

@@ -1,0 +1,10 @@
+spotify_transforms:
+  target: prod
+  outputs:
+    prod:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('DBT_PROJECT') }}"
+      dataset: spotify_raw
+      threads: 1
+      timeout_seconds: 300
