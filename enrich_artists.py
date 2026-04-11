@@ -107,9 +107,6 @@ def enrich_unknown_artists():
         job_config = bigquery.LoadJobConfig(
             write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
             autodetect=True,
-            schema_update_options=[
-                bigquery.SchemaUpdateOption.ALLOW_FIELD_ADDITION
-            ]
         )
         job = bq_client.load_table_from_json(enriched, table, job_config=job_config)
         job.result()

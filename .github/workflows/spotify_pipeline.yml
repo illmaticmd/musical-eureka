@@ -39,6 +39,7 @@ jobs:
 
       - name: Enrich unknown artist genres
         run: python enrich_artists.py
+        continue-on-error: true
 
       - name: Install dbt
         run: pip install dbt-bigquery
