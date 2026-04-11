@@ -48,7 +48,7 @@ def enrich_unknown_artists():
     project_id = os.getenv("GCP_PROJECT_ID")
     bq_client = bigquery.Client(project=project_id)
 
-    # 1. Pull all artists with no genres from BigQuery
+    # 1. Pull artists with no genres
     query = f"""
         SELECT DISTINCT artist_id, artist_name
         FROM `{project_id}.spotify_raw.artists`
@@ -61,31 +61,36 @@ def enrich_unknown_artists():
         print("No unknown artists to enrich.")
         return
 
-    # 2. Connect to Spotify
     creds = load_credentials()
     sp = get_spotify_client(creds)
 
-    # 3. For each unknown artist infer genre from related artists
     enriched = []
     for row in unknown_artists:
         artist_id = row["artist_id"]
         artist_name = row["artist_name"]
 
         try:
-            related = sp.artist_related_artists(artist_id)
+            # Search for the artist by name and grab genre from results
+            results = sp.search(q=f"artist:{artist_name}", type="artist", limit=5)
+            artists_found = results["artists"]["items"]
 
-            # Collect all genres from related artists
-            all_genres = []
-            for related_artist in related["artists"]:
-                all_genres.extend(related_artist.get("genres", []))
+            inferred_genre = None
+            for found_artist in artists_found:
+                # Match by Spotify ID first for accuracy
+                if found_artist["id"] == artist_id:
+                    if found_artist.get("genres"):
+                        inferred_genre = found_artist["genres"][0]
+                        break
+                # Fall back to name match
+                if found_artist["name"].lower() == artist_name.lower():
+                    if found_artist.get("genres"):
+                        inferred_genre = found_artist["genres"][0]
+                        break
 
-            if all_genres:
-                # Pick the most common genre
-                inferred_genre = max(set(all_genres), key=all_genres.count)
-                print(f"{artist_name} → inferred genre: {inferred_genre}")
+            if inferred_genre:
+                print(f"{artist_name} → {inferred_genre}")
             else:
-                inferred_genre = None
-                print(f"{artist_name} → no genre found from related artists")
+                print(f"{artist_name} → no genre found")
 
             enriched.append({
                 "artist_id": artist_id,
@@ -96,7 +101,7 @@ def enrich_unknown_artists():
             print(f"Error enriching {artist_name}: {e}")
             continue
 
-    # 4. Save inferred genres to a new BigQuery table
+    # 2. Save to BigQuery
     if enriched:
         table = f"{project_id}.spotify_raw.artist_genre_enrichment"
         job_config = bigquery.LoadJobConfig(

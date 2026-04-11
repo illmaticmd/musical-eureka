@@ -12,17 +12,11 @@ artists AS (
     SELECT DISTINCT
         a.artist_id,
         a.artist_name,
-        -- First try Spotify's own genre
-        -- Then fall back to inferred genre from related artists
-        -- Then fall back to Unknown
         COALESCE(
             NULLIF(a.genres[SAFE_OFFSET(0)], ''),
-            e.inferred_genre,
             'Unknown'
         ) AS primary_genre
     FROM `spotify-data-pipeline-490402.spotify_raw.artists` a
-    LEFT JOIN `spotify-data-pipeline-490402.spotify_raw.artist_genre_enrichment` e
-        ON a.artist_id = e.artist_id
 )
 
 SELECT
