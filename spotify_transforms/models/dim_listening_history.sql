@@ -1,34 +1,31 @@
 WITH tracks AS (
-    -- Adding DISTINCT forces BigQuery to drop any duplicate rows 
-    -- where the song and the exact play time are identical.
     SELECT DISTINCT
-        -- Extracting basic track info
         track.id AS track_id,
         track.name AS track_name,
         track.popularity AS popularity,
         played_at,
-        
-        -- Spotify tracks can have multiple artists. We grab the ID of the first (primary) artist.
         track.artists[SAFE_OFFSET(0)].id AS primary_artist_id
-        
     FROM `spotify-data-pipeline-490402.spotify_raw.listening_history`
 ),
 
 artists AS (
--- We also use DISTINCT here just in case Airflow pulled the same artist multiple times
-    SELECT DISTINCT 
-        artist_id,
-        artist_name,
-        
-        -- Artists have multiple genres. We grab the first one. 
-        -- If they have no genres, we label it 'Unknown' instead of leaving a null blank.
-        COALESCE(genres[SAFE_OFFSET(0)], 'Unknown') AS primary_genre
-        
-    FROM `spotify-data-pipeline-490402.spotify_raw.artists`
+    SELECT DISTINCT
+        a.artist_id,
+        a.artist_name,
+        -- First try Spotify's own genre
+        -- Then fall back to inferred genre from related artists
+        -- Then fall back to Unknown
+        COALESCE(
+            NULLIF(a.genres[SAFE_OFFSET(0)], ''),
+            e.inferred_genre,
+            'Unknown'
+        ) AS primary_genre
+    FROM `spotify-data-pipeline-490402.spotify_raw.artists` a
+    LEFT JOIN `spotify-data-pipeline-490402.spotify_raw.artist_genre_enrichment` e
+        ON a.artist_id = e.artist_id
 )
 
--- Join them together to create the final, flat table for Power BI
-SELECT 
+SELECT
     t.played_at,
     t.track_id,
     t.track_name,
