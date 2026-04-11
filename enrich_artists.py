@@ -1,5 +1,7 @@
 import os
 import json
+import requests
+import time
 from google.cloud import bigquery
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
@@ -44,6 +46,48 @@ def get_spotify_client(creds):
     return spotipy.Spotify(auth=token_info["access_token"])
 
 
+def get_genre_from_spotify(sp, artist_id, artist_name):
+    """Try to get genre from Spotify search."""
+    try:
+        results = sp.search(q=f"artist:{artist_name}", type="artist", limit=5)
+        artists_found = results["artists"]["items"]
+        for found_artist in artists_found:
+            if found_artist["id"] == artist_id:
+                if found_artist.get("genres"):
+                    return found_artist["genres"][0]
+            if found_artist["name"].lower() == artist_name.lower():
+                if found_artist.get("genres"):
+                    return found_artist["genres"][0]
+    except Exception as e:
+        print(f"Spotify search error for {artist_name}: {e}")
+    return None
+
+
+def get_genre_from_musicbrainz(artist_name):
+    """Fall back to MusicBrainz for genre lookup."""
+    try:
+        # MusicBrainz requires a user agent
+        headers = {"User-Agent": "SpotifyPipeline/1.0 (mcdesmondd@gmail.com)"}
+        url = f"https://musicbrainz.org/ws/2/artist/?query=artist:{requests.utils.quote(artist_name)}&fmt=json&limit=3"
+        response = requests.get(url, headers=headers)
+        time.sleep(1)  # MusicBrainz rate limit — 1 request per second
+
+        if response.status_code == 200:
+            data = response.json()
+            artists = data.get("artists", [])
+            for artist in artists:
+                # Check name matches closely
+                if artist.get("name", "").lower() == artist_name.lower():
+                    tags = artist.get("tags", [])
+                    if tags:
+                        # Tags are sorted by vote count — take the top one
+                        top_tag = sorted(tags, key=lambda x: x.get("count", 0), reverse=True)[0]
+                        return top_tag["name"]
+    except Exception as e:
+        print(f"MusicBrainz error for {artist_name}: {e}")
+    return None
+
+
 def enrich_unknown_artists():
     project_id = os.getenv("GCP_PROJECT_ID")
     bq_client = bigquery.Client(project=project_id)
@@ -69,37 +113,23 @@ def enrich_unknown_artists():
         artist_id = row["artist_id"]
         artist_name = row["artist_name"]
 
-        try:
-            # Search for the artist by name and grab genre from results
-            results = sp.search(q=f"artist:{artist_name}", type="artist", limit=5)
-            artists_found = results["artists"]["items"]
+        # Try Spotify first
+        genre = get_genre_from_spotify(sp, artist_id, artist_name)
 
-            inferred_genre = None
-            for found_artist in artists_found:
-                # Match by Spotify ID first for accuracy
-                if found_artist["id"] == artist_id:
-                    if found_artist.get("genres"):
-                        inferred_genre = found_artist["genres"][0]
-                        break
-                # Fall back to name match
-                if found_artist["name"].lower() == artist_name.lower():
-                    if found_artist.get("genres"):
-                        inferred_genre = found_artist["genres"][0]
-                        break
-
-            if inferred_genre:
-                print(f"{artist_name} → {inferred_genre}")
+        # Fall back to MusicBrainz
+        if not genre:
+            genre = get_genre_from_musicbrainz(artist_name)
+            if genre:
+                print(f"{artist_name} → {genre} (MusicBrainz)")
             else:
                 print(f"{artist_name} → no genre found")
+        else:
+            print(f"{artist_name} → {genre} (Spotify)")
 
-            enriched.append({
-                "artist_id": artist_id,
-                "inferred_genre": inferred_genre
-            })
-
-        except Exception as e:
-            print(f"Error enriching {artist_name}: {e}")
-            continue
+        enriched.append({
+            "artist_id": artist_id,
+            "inferred_genre": genre
+        })
 
     # 2. Save to BigQuery
     if enriched:
